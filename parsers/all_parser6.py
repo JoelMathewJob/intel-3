@@ -220,7 +220,7 @@ class SmartDocumentParser:
         img_dir.mkdir(parents=True, exist_ok=True)
         json_dir.mkdir(parents=True, exist_ok=True)
 
-        md_file = md_dir / f"{doc_name}_enriched.md"
+        md_file = md_dir / f"{doc_name}.md"
 
         # Save markdown
         document.save_as_markdown(
@@ -235,12 +235,12 @@ class SmartDocumentParser:
             summary = self.summarize_standalone_image(file_path)
             if summary:
                 # Injecting at the top so it's the first thing the RAG bot sees
-                md_content = f"# IMAGE SUMMARY\n{summary}\n\n---\n\n" 
+                md_content = f"## IMAGE SUMMARY\n{summary}\n\n---\n\n" 
 
             # 3. Manually save the final enriched content to a file
             # md_file = md_dir / f"{doc_name}_enriched.md"
                 with open(md_file, "a", encoding="utf-8") as f:
-                    f.write(md_content)
+                    f.write("\n"+md_content+"\n")
         # Save structured JSON
         json_file = json_dir / f"{doc_name}_structured.json"
 
