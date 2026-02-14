@@ -72,7 +72,7 @@ uv --version
 ├── parsers/
 │   └── all_parser8.py   # Multimodal SmartDocumentParser
 ├── data/
-│   ├── uploads/         # Drop raw files here
+│   ├── input/           # Drop raw files here
 │   ├── output/          # Parsed Markdown, JSON, Images
 │   └── chroma_db/       # Persistent Vector Database
 └── README.md
