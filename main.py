@@ -3,7 +3,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dotenv import load_dotenv
 
-from parsers.all_parser7 import SmartDocumentParser
+from parsers.all_parser8 import SmartDocumentParser
 from engine.chunker import RAGChunker
 from engine.vector_db import VectorEngine
 

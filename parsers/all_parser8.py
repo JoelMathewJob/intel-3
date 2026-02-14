@@ -1,4 +1,6 @@
-# IMAGE ANNOTATIONS OF PNG, JPEGS
+# video image ocr
+
+
 
 import os
 import json
@@ -8,7 +10,7 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import base64
 import requests
-
+import cv2
 from dotenv import load_dotenv
 
 from docling.document_converter import (
@@ -19,16 +21,24 @@ from docling.document_converter import (
     ImageFormatOption,
     HTMLFormatOption,       # Added
     MarkdownFormatOption,   # Added
-    ExcelFormatOption
+    ExcelFormatOption,
+    AudioFormatOption     
 )
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import (
     ThreadedPdfPipelineOptions,
     PictureDescriptionApiOptions,
     TableStructureOptions,
-    TableFormerMode
+    TableFormerMode,
+    AsrPipelineOptions,
+    RapidOcrOptions
 )
 from docling_core.types.doc.document import ImageRefMode
+
+from docling.datamodel.accelerator_options import AcceleratorOptions, AcceleratorDevice
+from docling.pipeline.asr_pipeline import AsrPipeline
+from docling.datamodel import asr_model_specs
+
 
 
 load_dotenv()
@@ -61,9 +71,8 @@ class SmartDocumentParser:
             timeout=30,
         )
 
-        # ===============================
-        # Accurate table configuration
-        # ===============================
+        ocr_options = RapidOcrOptions()
+
         table_options = TableStructureOptions(
             mode=TableFormerMode.ACCURATE,
             do_cell_matching=True
@@ -81,7 +90,7 @@ class SmartDocumentParser:
 
             # OCR enabled for image inputs
             do_ocr=True,
-
+            ocr_options=RapidOcrOptions(force_full_page_ocr=True),
             # Accurate tables
             do_table_structure=True,
             table_structure_options=table_options,
@@ -89,10 +98,28 @@ class SmartDocumentParser:
             images_scale=1.0,
             layout_batch_size=8,
             table_batch_size=8,
+
+            # audio media
+        #     asr_options = AsrPipelineOptions(
+        #     do_asr=True,
+        #     model_size="base" # "base" is a good balance of speed and accuracy
+        # )
+            
         )
 
-        # IMPORTANT:
-        # In Docling 2.x, pipeline options passed globally apply
+        accelerator = AcceleratorOptions(
+            num_threads=os.cpu_count(),
+            device=AcceleratorDevice.CPU
+        )
+
+        # 2. Setup the Media Pipeline
+        media_pipeline = AsrPipelineOptions(
+            accelerator_options=accelerator,  # <--- Device setting goes here
+            asr_options=asr_model_specs.WHISPER_BASE
+        )
+
+        
+
         self.converter = DocumentConverter(
             allowed_formats=[
                 InputFormat.PDF,
@@ -102,7 +129,9 @@ class SmartDocumentParser:
                 InputFormat.HTML,
                 InputFormat.IMAGE,
                 InputFormat.CSV,
-                InputFormat.MD
+                InputFormat.MD,
+                InputFormat.AUDIO,     # ✅ NEW
+                # InputFormat.VIDEO      # ✅ NEW
             ],
             format_options={
             # PDFs use the specialized PDF pipeline
@@ -119,6 +148,12 @@ class SmartDocumentParser:
             
             # Excel & CSV
             InputFormat.XLSX: ExcelFormatOption(pipeline_options=pdf_pipeline),
+
+            # Auido and Video
+            InputFormat.AUDIO: AudioFormatOption(
+                    pipeline_cls=AsrPipeline, 
+                    pipeline_options=media_pipeline
+                ),
             }
         )
 
@@ -158,6 +193,60 @@ class SmartDocumentParser:
         except Exception as e:
             print(f"⚠️ Could not generate standalone summary: {e}")
             return None
+
+    def summarize_media_content(self, text_content, file_type):
+        """Generates a high-level summary of a long transcript using Azure."""
+        try:
+            az_api_key = os.getenv("AZURE_OPENAI_API_KEY")
+            azure_url = "https://newdocintel.openai.azure.com/openai/deployments/gpt-4.1/chat/completions?api-version=2024-02-15-preview"
+            
+            headers = {"Content-Type": "application/json", "api-key": az_api_key}
+            payload = {
+                "messages": [
+                    {"role": "system", "content": f"You are a media analyst. Summarize this {file_type} transcript in 3 bullet points."},
+                    {"role": "user", "content": text_content[:4000]} # Limit tokens
+                ]
+            }
+            resp = requests.post(azure_url, headers=headers, json=payload)
+            return resp.json()['choices'][0]['message']['content']
+        except:
+            return "No summary available."
+        
+    def extract_and_summarize_frames(self, video_path, doc_name, img_dir, interval_seconds=3):
+        """Captures frames at intervals and generates a visual narrative."""
+        cap = cv2.VideoCapture(str(video_path))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        if fps == 0: return "Could not analyze video frames."
+        
+        frame_interval = int(fps * interval_seconds)
+        frame_count = 0
+        timeline_entries = []
+
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret: break
+            
+            if frame_count % frame_interval == 0:
+                timestamp = int(frame_count / fps)
+                frame_name = f"frame_{timestamp}s.png"
+                frame_path = img_dir / frame_name
+                cv2.imwrite(str(frame_path), frame)
+
+                try:
+                    result = self.converter.convert(str(frame_path))
+                    # Use .get() or check if document has content to avoid errors
+                    ocr_text = result.document.export_to_markdown() if result.document.texts else "[No text detected]"
+                except Exception as e:
+                    ocr_text = f"[OCR skipped: {e}]"
+                
+                # Use your existing Azure Vision summary function
+                description = self.summarize_standalone_image(frame_path)
+                timeline_entries.append(f"**[{timestamp}s]:** {description} \n\n Frame-OCR: {ocr_text} \n")
+                
+            frame_count += 1
+        
+        cap.release()
+        return "\n".join(timeline_entries) if timeline_entries else "No visual activity detected."
 
     # ==========================================================
     # PUBLIC METHODS
@@ -231,9 +320,25 @@ class SmartDocumentParser:
             artifacts_dir=img_dir,
             include_annotations=True
         )
+        
+        enrichment_header = ""
+        ext = file_path.suffix.lower()
+        if ext in ['.mp3', '.mp4', '.wav', '.mov', '.avi']:
+            # Generate Global Summary
+            media_summary = self.summarize_media_content(md_file, ext)
+            header = f"## MEDIA SUMMARY ({ext.upper()})\n{media_summary}\n\n---\n\n"
+            md_content = header
+
+            if ext in ['.mp4', '.mov', '.avi']:
+                print(f"🎬 Analyzing visual timeline for: {file_path.name}")
+                visual_timeline = self.extract_and_summarize_frames(file_path, doc_name, img_dir)
+                enrichment_header += f"## VISUAL TIMELINE\n{visual_timeline}\n\n"
+            
+            with open(md_file, "a", encoding="utf-8") as f:
+                    f.write("\n\n"+md_content+"\n\n"+enrichment_header)
 
 
-        if file_path.suffix.lower() in ['.png', '.jpg', '.jpeg', '.bmp']:
+        if ext in ['.png', '.jpg', '.jpeg', '.bmp', ".gif"]:
             summary = self.summarize_standalone_image(file_path)
             if summary:
                 # Injecting at the top so it's the first thing the RAG bot sees
@@ -243,6 +348,8 @@ class SmartDocumentParser:
             # md_file = md_dir / f"{doc_name}_enriched.md"
                 with open(md_file, "a", encoding="utf-8") as f:
                     f.write("\n"+md_content+"\n")
+
+
         # Save structured JSON
         json_file = json_dir / f"{doc_name}_structured.json"
 

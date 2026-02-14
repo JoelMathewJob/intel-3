@@ -1,3 +1,7 @@
+# AUDIO AND VIDEO
+
+
+
 import os
 import json
 import traceback
@@ -17,14 +21,16 @@ from docling.document_converter import (
     ImageFormatOption,
     HTMLFormatOption,       # Added
     MarkdownFormatOption,   # Added
-    ExcelFormatOption     
+    ExcelFormatOption,
+    AudioFormatOption     
 )
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import (
     ThreadedPdfPipelineOptions,
     PictureDescriptionApiOptions,
     TableStructureOptions,
-    TableFormerMode
+    TableFormerMode,
+    AsrPipelineOptions
 )
 from docling_core.types.doc.document import ImageRefMode
 
@@ -61,9 +67,6 @@ class SmartDocumentParser:
             timeout=30,
         )
 
-        # ===============================
-        # Accurate table configuration
-        # ===============================
         table_options = TableStructureOptions(
             mode=TableFormerMode.ACCURATE,
             do_cell_matching=True
@@ -91,9 +94,14 @@ class SmartDocumentParser:
             table_batch_size=8,
 
             # audio media
-            do_asr=True,
-
+        #     asr_options = AsrPipelineOptions(
+        #     do_asr=True,
+        #     model_size="base" # "base" is a good balance of speed and accuracy
+        # )
+            
         )
+
+        media_pipeline = AsrPipelineOptions()
 
         # IMPORTANT:
         # In Docling 2.x, pipeline options passed globally apply
@@ -108,7 +116,7 @@ class SmartDocumentParser:
                 InputFormat.CSV,
                 InputFormat.MD,
                 InputFormat.AUDIO,     # ✅ NEW
-                InputFormat.VIDEO      # ✅ NEW
+                # InputFormat.VIDEO      # ✅ NEW
             ],
             format_options={
             # PDFs use the specialized PDF pipeline
@@ -127,8 +135,11 @@ class SmartDocumentParser:
             InputFormat.XLSX: ExcelFormatOption(pipeline_options=pdf_pipeline),
 
             # Auido and Video
-            InputFormat.AUDIO: AudioFormatOption(pipeline_cls=AsrPipeline, pipeline_options=pdf_pipeline),
-            InputFormat.VIDEO: VideoFormatOption(pipeline_cls=AsrPipeline, pipeline_options=pdf_pipeline),}
+            InputFormat.AUDIO: AudioFormatOption(
+                    pipeline_cls=AsrPipeline, 
+                    pipeline_options=media_pipeline
+                ),
+            }
         )
 
     def summarize_standalone_image(self, file_path):
@@ -292,14 +303,14 @@ class SmartDocumentParser:
         ext = file_path.suffix.lower()
         if ext in ['.mp3', '.mp4', '.wav', '.mov', '.avi']:
             # Generate Global Summary
-            media_summary = self.summarize_media_content(md_content, ext)
-            header = f"## MEDIA SUMMARY ({ext.upper()})\n{media_summary}\n\n---\n\n## TRANSCRIPT\n"
-            md_content = header + md_content
+            media_summary = self.summarize_media_content(md_file, ext)
+            header = f"## MEDIA SUMMARY ({ext.upper()})\n{media_summary}\n\n---\n\n"
+            md_content = header
 
             if ext in ['.mp4', '.mov', '.avi']:
                 print(f"🎬 Analyzing visual timeline for: {file_path.name}")
                 visual_timeline = self.extract_and_summarize_frames(file_path, doc_name, img_dir)
-                enrichment_header += f"## VISUAL TIMELINE\n{visual_timeline}\n\n---\n\n## TRANSCRIPT\n"
+                enrichment_header += f"## VISUAL TIMELINE\n{visual_timeline}\n\n"
             
             with open(md_file, "a", encoding="utf-8") as f:
                     f.write("\n\n"+md_content+"\n\n"+enrichment_header)
