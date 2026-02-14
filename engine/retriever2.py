@@ -13,7 +13,7 @@ class RAGRetriever:
             collection_name=self.collection_name
         )
 
-    def get_relevant_context(self, query, k=10):
+    def get_relevant_context(self, query, k=15):
         results = self.vector_db.similarity_search(query, k=k)
         context = "\n\n".join([doc.page_content for doc in results])
         sources = list(set([doc.metadata.get("source_file", "Unknown") for doc in results]))

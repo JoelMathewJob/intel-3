@@ -3,7 +3,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dotenv import load_dotenv
 
-from parsers.all_parser6 import SmartDocumentParser
+from parsers.all_parser7 import SmartDocumentParser
 from engine.chunker import RAGChunker
 from engine.vector_db import VectorEngine
 
@@ -45,7 +45,7 @@ def run_ingestion_pipeline():
     vector_db = VectorEngine(collection_name=collection_name)
 
     input_folder = Path("data/input")
-    files_to_process = [f for f in input_folder.glob("*") if f.suffix.lower() in ['.pdf', '.docx', '.pptx', '.png', '.jpg', ".xlsx", ".txt"]]
+    files_to_process = [f for f in input_folder.glob("*")]
 
     print(f"🚀 Starting parallel ingestion for {len(files_to_process)} files...\n")
 

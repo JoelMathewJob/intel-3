@@ -9,10 +9,17 @@ wheels/
 # Virtual environments
 .venv
 
-tests/
-tests/*
+.env
+.env.example
+.env.local
+.env.staging
 
-# Ignore contents of data folders
+.tp
+tp
+
+# tests/
+# tests/*
+
+data/output
+data/chroma_db
 data/input/*
-data/output/*
-data/chroma_db/*
