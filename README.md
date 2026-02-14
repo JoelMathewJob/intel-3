@@ -72,7 +72,7 @@ uv --version
 ├── parsers/
 │   └── all_parser8.py   # Multimodal SmartDocumentParser
 ├── data/
-│   ├── uploads/         # Drop raw files here
+│   ├── input/           # Drop raw files here
 │   ├── output/          # Parsed Markdown, JSON, Images
 │   └── chroma_db/       # Persistent Vector Database
 └── README.md
@@ -85,6 +85,7 @@ uv --version
 ## 1️⃣ Navigate to Project
 
 ```bash
+git clone <repo>
 cd intel-3
 ```
 
@@ -109,8 +110,9 @@ HF_TOKEN=your_token_here
 ### ✅ Using `uv` (Preferred)
 
 ```bash
-git clone <repo>
-cd intel-3
+
+uv venv
+.venv\Scripts\activate
 uv sync
 
 ```
