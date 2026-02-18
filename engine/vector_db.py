@@ -12,7 +12,7 @@ class VectorEngine:
         # This model is free, runs locally, and is very fast
         model_name = "BAAI/bge-small-en-v1.5"
         model_kwargs = {'device': 'cpu'} # Change to 'cuda' if you have a GPU
-        encode_kwargs = {'normalize_embeddings': True}
+        encode_kwargs = {'normalize_embeddings': False}
         
         self.embeddings = HuggingFaceEmbeddings(
             model_name=model_name,

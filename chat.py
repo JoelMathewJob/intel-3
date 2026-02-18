@@ -1,7 +1,7 @@
 import os
 from openai import AzureOpenAI
 from dotenv import load_dotenv
-from engine.retriever import RAGRetriever
+from engine.retrievers.retriever import RAGRetriever
 
 load_dotenv()
 

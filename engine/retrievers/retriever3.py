@@ -13,8 +13,18 @@ class RAGRetriever:
             collection_name=self.collection_name
         )
 
-    def get_relevant_context(self, query, k=15):
-        results = self.vector_db.similarity_search(query, k=k)
+    def get_relevant_context(self, query, k=8):
+    # MMR search for better diversity in context
+    # fetch_k: number of docs to initially find
+    # lambda_mult: 0.5 is balanced, 0 is max diversity, 1 is max similarity
+        results = self.vector_db.max_marginal_relevance_search(
+            query, 
+            k=k, 
+            fetch_k=20, 
+            lambda_mult=0.5
+        )
+        print("retirved chunks:",results,"\n\n")
+        
         context = "\n\n".join([doc.page_content for doc in results])
         sources = list(set([doc.metadata.get("source_file", "Unknown") for doc in results]))
         return context, sources

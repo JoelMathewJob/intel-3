@@ -78,15 +78,37 @@ class SmartDocumentParser:
             do_cell_matching=True
         )
 
-        pdf_pipeline = ThreadedPdfPipelineOptions(
-            num_threads=os.cpu_count(),
+        true_pdf_pipeline = ThreadedPdfPipelineOptions( # Use threaded version
+            do_picture_description=True,
+            picture_description_options=pic_options,
+            enable_remote_services=True,
+            generate_picture_images=True,
+            images_scale=2.0,  # Keep scale at 1.0 for speed
+            do_ocr=False,      # Turn off OCR if documents are digital
+            
+            # Use faster table mode
+            do_table_structure=True,
+            table_structure_options=TableStructureOptions(
+                mode=TableFormerMode.ACCURATE, # Accurate is better for large text
+                do_cell_matching=True # Forces text to stay inside cell borders
+            ),
+            
+            # Parallel batch sizes
+            layout_batch_size=4,
+            table_batch_size=4,
+            
+            # Switch to faster backend
+            pdf_backend="pypdfium2"
+        )
+
+        doc_pipeline = ThreadedPdfPipelineOptions(
 
             # Enable vision globally
             do_picture_description=True,
             picture_description_options=pic_options,
             enable_remote_services=True,
             generate_picture_images=True,
-            # force_full_page_ocr=False,
+            force_full_page_ocr=True,
 
             # OCR enabled for image inputs
             do_ocr=True,
@@ -98,6 +120,8 @@ class SmartDocumentParser:
             images_scale=1.0,
             layout_batch_size=8,
             table_batch_size=8,
+            pdf_backend="pypdfium2",
+
 
             # audio media
         #     asr_options = AsrPipelineOptions(
@@ -135,19 +159,19 @@ class SmartDocumentParser:
             ],
             format_options={
             # PDFs use the specialized PDF pipeline
-            InputFormat.PDF: PdfFormatOption(pipeline_options=pdf_pipeline),
+            InputFormat.PDF: PdfFormatOption(pipeline_options=true_pdf_pipeline),
             
             # Word and PPTX use the standard options but can still use the same pipeline
-            InputFormat.DOCX: WordFormatOption(pipeline_options=pdf_pipeline),
-            InputFormat.PPTX: PowerpointFormatOption(pipeline_options=pdf_pipeline),
+            InputFormat.DOCX: WordFormatOption(pipeline_options=doc_pipeline),
+            InputFormat.PPTX: PowerpointFormatOption(pipeline_options=doc_pipeline),
             
             # Images (JPG, PNG) also need this to trigger the Azure Vision description
-            InputFormat.IMAGE: ImageFormatOption(pipeline_options=pdf_pipeline),
-            InputFormat.HTML: HTMLFormatOption(pipeline_options=pdf_pipeline),
-            InputFormat.MD: MarkdownFormatOption(pipeline_options=pdf_pipeline),
+            InputFormat.IMAGE: ImageFormatOption(pipeline_options=doc_pipeline),
+            InputFormat.HTML: HTMLFormatOption(pipeline_options=doc_pipeline),
+            InputFormat.MD: MarkdownFormatOption(pipeline_options=doc_pipeline),
             
             # Excel & CSV
-            InputFormat.XLSX: ExcelFormatOption(pipeline_options=pdf_pipeline),
+            InputFormat.XLSX: ExcelFormatOption(pipeline_options=doc_pipeline),
 
             # Auido and Video
             InputFormat.AUDIO: AudioFormatOption(

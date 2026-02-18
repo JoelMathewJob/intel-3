@@ -1,7 +1,7 @@
 import os
 from openai import AzureOpenAI
 from dotenv import load_dotenv
-from engine.retriever2 import RAGRetriever
+from engine.retrievers.retriever5 import RAGRetriever
 
 load_dotenv()
 
@@ -25,7 +25,7 @@ def start_case_chat(case_id="intel_docs"):
         if query.lower() in ['exit', 'quit']: break
 
         # 1. Retrieve context ONLY from this case
-        context, sources = retriever.get_relevant_context(query)
+        context, sources = retriever.get_relevant_context(query,source_file="Kent.pdf")
 
         # 2. Build the history-aware system prompt
         history_str = "\n".join([f"{h['role']}: {h['content']}" for h in chat_history[-5:]])

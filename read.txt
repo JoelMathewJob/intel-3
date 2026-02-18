@@ -1,1 +1,3 @@
 chroma browse langchain --path ./data/chroma_db
+
+uv run fastapi dev server.py

@@ -3,9 +3,9 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dotenv import load_dotenv
 
-from parsers.pdf_parser2 import SmartPDFParser as SmartDocumentParser
-from engine.chunkers.chunker2 import RAGChunker
-from engine.vector_db import VectorEngine
+# from parsers.all_parser8 import SmartDocumentParser
+# from engine.chunker2 import RAGChunker
+# from engine.vector_db import VectorEngine
 
 load_dotenv()
 
@@ -23,9 +23,9 @@ def process_single_file(file_path, parser, chunker, vector_db):
             content = f.read()
         
         # STEP B & C: Chunking & Metadata
-        chunks = chunker.create_chunks(content)
-        for chunk in chunks:
-            chunk.metadata["source_file"] = file_path.name
+        chunks = chunker.create_chunks(content, file_path.name)
+        # for chunk in chunks:
+        #     chunk.metadata["source_file"] = file_path.name
         
         # STEP D: Indexing (Wrapped in try-except in vector_db)
         success = vector_db.store_documents(chunks)
@@ -39,10 +39,17 @@ def process_single_file(file_path, parser, chunker, vector_db):
 
 def run_ingestion_pipeline():
     # Initialize components
-    collection_name = input("enter collection name: ")
+    case_id = input("enter collection name: ")
+
+    
+    from parsers.all_parser8 import SmartDocumentParser
+    from engine.chunkers.chunker4 import RAGChunker
+    from engine.vector_db import VectorEngine
+    
     parser = SmartDocumentParser(output_dir="data/output")
     chunker = RAGChunker(chunk_size=800, chunk_overlap=80)
-    vector_db = VectorEngine(collection_name=collection_name)
+    # vector_db = VectorEngine(collection_name=collection_name)
+    vector_db = VectorEngine(collection_name=case_id)
 
     input_folder = Path("data/input")
     files_to_process = [f for f in input_folder.glob("*")]
